@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rialo Ninja</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Firebase v10 (ESM) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, query, orderBy, limit, getDocs, doc, setDoc, getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ================== Firebase Config (rialo-ninja) ==================
+    const firebaseConfig = {
+      apiKey: "AIzaSyD96WyfMOItMyUsZjgTKYBndYBLGWEVDuQ",
+      authDomain: "rialo-ninja.firebaseapp.com",
+      projectId: "rialo-ninja",
+      storageBucket: "rialo-ninja.firebasestorage.app",
+      messagingSenderId: "687526575895",
+      appId: "1:687526575895:web:11365904d8f32f32cc4152",
+      measurementId: "G-L7FCXD4FNS"
+    };
+    // ===================================================================
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const COLLECTION = "Best Rialo ninjas";
+
+    // Save score (per player name)
+    window.saveScore = async function(name, score) {
+      try {
+        const safeName = name.trim().slice(0, 24) || "Guest";
+        const docRef = doc(db, COLLECTION, safeName);
+        const snap   = await getDoc(docRef);
+        if (!snap.exists() || (typeof snap.data().score !== "number") || snap.data().score < score) {
+          await setDoc(docRef, { name: safeName, score: Number(score) || 0 });
+        }
+      } catch (e) {
+        console.error("saveScore error:", e);
+      }
+    };
+
+    // Load leaderboard top 10
+    window.loadLeaderboard = async function() {
+      try {
+        const q = query(collection(db, COLLECTION), orderBy("score", "desc"), limit(10));
+        const qs = await getDocs(q);
+        let rows = "";
+        let rank = 1;
+        qs.forEach(d => {
+          const data = d.data() || {};
+          const n = (data.name ?? "Guest");
+          const s = (typeof data.score === "number" ? data.score : 0);
+          rows += `<li><span class="rank">${rank++}.</span> <span class="name">${n}</span><span class="dots"></span><span class="score">${s}</span></li>`;
+        });
+        document.getElementById("leaderboard").innerHTML = `
+          <div class="panel-title">Best Rialo ninjas</div>
+          <ol class="lb-list">${rows}</ol>
+        `;
+      } catch (e) {
+        console.error("loadLeaderboard error:", e);
+        document.getElementById("leaderboard").innerHTML =
+          "<div class='panel-title'>Best Rialo ninjas</div><div>Cannot load. Check Firestore rules & internet.</div>";
+      }
+    };
+  </script>
+
+  <style>
+    :root{
+      --glass-bg: rgba(255,255,255,0.14);
+      --glass-border: rgba(255,255,255,0.28);
+      --glass-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    html, body {
+      margin: 0; padding: 0; overflow: hidden;
+      font-family: "Space Grotesk", system-ui, Arial, sans-serif;
+      background: #0d47a1 url('anhnen.png') center/cover no-repeat fixed;
+      color: #fff;
+    }
+    canvas { display: block; }
+
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      border-radius: 16px;
+    }
+
+    #startScreen, #loseScreen {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); text-align: center; padding: 20px;
+    }
+    #loseScreen { display: none; font-size: 3em; cursor: pointer; }
+
+    input, button {
+      font-size: 1.1em; padding: 10px 14px; margin: 10px;
+      border-radius: 12px; border: none;
+    }
+    button { background: #00c853; color: #fff; cursor: pointer; }
+    button:hover { filter: brightness(1.1); }
+
+    #logo { width: 110px; margin-bottom: 16px; }
+    h1 { margin: 0 0 8px 0; font-weight: 700; letter-spacing: .5px; }
+    p { margin: 0 0 10px 0; line-height: 1.4; }
+    small { opacity: 0.9; }
+
+    /* Leaderboard (bottom-right) */
+    #leaderboard {
+      position: absolute; bottom: 14px; right: 14px; z-index: 5;
+      min-width: 260px; padding: 14px 16px;
+    }
+    #leaderboard .panel-title{
+      font-weight: 700; font-size: 1.05rem; letter-spacing: .6px;
+      margin-bottom: 8px;
+    }
+    .lb-list{
+      list-style: none; padding: 0; margin: 0;
+      display: grid; gap: 6px;
+    }
+    .lb-list li{
+      display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+      gap: 8px; font-weight: 600;
+    }
+    .lb-list .rank{ opacity: 0.9; width: 28px; text-align: right; }
+    .lb-list .name{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lb-list .dots{
+      height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+      margin: 0 6px;
+    }
+    .lb-list .score{ min-width: 24px; text-align: right; }
+
+    /* HUD (top-left) */
+    #hud{
+      position: absolute; top: 14px; left: 14px; z-index: 5;
+      padding: 12px 14px; min-width: 220px;
+      display: grid; gap: 6px;
+    }
+    #hud .hud-title{
+      font-weight: 700; letter-spacing: .5px; opacity: .95; font-size: .95rem; margin-bottom: 2px;
+    }
+    #hud .row{
+      display: flex; justify-content: space-between; gap: 8px; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <img src="rialo.png" id="logo" alt="Rialo Logo" />
+    <h1>Rialo Ninja</h1>
+    <p><strong>Swipe or drag to <u>slice logos</u>!</strong><br/>
+       Colorful = <b>+2</b> · Black = <b>-2</b> · Miss <b>10</b> and you lose.<br/>
+       <small>(Missing black logo does <u>not</u> count as a miss.)</small></p>
+    <small>Tip: the game speeds up every <b>5</b> points.</small>
+    <div>
+      <input type="text" id="nameInput" placeholder="Enter your Rialo name" />
+      <button id="playButton">Play</button>
+    </div>
+  </div>
+
+  <!-- Lose Screen -->
+  <div id="loseScreen">You Lose<br><span style="font-size: 0.5em;">Click to restart</span></div>
+
+  <!-- Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD (glass) -->
+  <div id="hud" class="glass">
+    <div class="hud-title">Status</div>
+    <div class="row"><span>Player</span><span id="hudPlayer">Guest</span></div>
+    <div class="row"><span>Score</span><span id="hudScore">0</span></div>
+    <div class="row"><span>Missed</span><span id="hudMiss">0/10</span></div>
+  </div>
+
+  <!-- Leaderboard (glass) -->
+  <div id="leaderboard" class="glass">Loading...</div>
+
+  <!-- Sounds -->
+  <audio id="loseSound" src="lose.mp3"></audio>
+  <audio id="cutSound" src="sword-cut-type-1-230552.mp3"></audio>
+  <audio id="fallSound" src="jump-scares-2-159305.mp3"></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener("resize", resize); resize();
+
+    // --- Assets ---
+    const normalLogos = ["rialo1.png", "rialo2.png", "rialo3.png"]; // colorful (+2)
+    const badLogo     = "rialo5.png";                                // black (-2)
+    const crackImage  = new Image(); crackImage.src = "crack.png";
+
+    // Sounds
+    const loseSound = document.getElementById("loseSound");
+    const cutSound  = document.getElementById("cutSound");
+    const fallSound = document.getElementById("fallSound");
+
+    // HUD elements
+    const hudPlayer = document.getElementById("hudPlayer");
+    const hudScore  = document.getElementById("hudScore");
+    const hudMiss   = document.getElementById("hudMiss");
+
+    // State
+    let clouds = [], score = 0, miss = 0, isGameOver = false;
+    let playerName = "Guest", spawnRate = 800, spawnInterval;
+    let mouseTrail = [];
+
+    window.updateHUD = function(){
+      hudPlayer.textContent = playerName;
+      hudScore.textContent  = String(score);
+      hudMiss.textContent   = `${miss}/10`;
+    };
+
+    class Logo {
+      constructor(typeSrc, x) {
+        this.typeSrc = typeSrc;
+        this.image = new Image();
+        this.image.src = typeSrc;
+        this.width = 100;
+        this.height = 100;
+        this.x = x;
+        this.y = -120;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = Math.random() * 2 + 2;
+        this.sliced = false;
+        this.fallSpeed = 0;
+        this.markedForDeletion = false;
+      }
+      update() {
+        if (this.sliced) {
+          this.y += this.fallSpeed;
+          this.fallSpeed += 0.5;
+          if (this.y > canvas.height) this.markedForDeletion = true;
+        } else {
+          this.x += this.vx;
+          this.y += this.vy;
+          if (this.y > canvas.height + 120 && !this.markedForDeletion) {
+            // MISS: chỉ tính miss nếu KHÔNG phải black logo
+            if (!this.isBlack()) {
+              miss++;
+              window.updateHUD();
+              if (miss >= 10) gameOver();
+            }
+            this.markedForDeletion = true;
+          }
+        }
+      }
+      draw() {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        if (this.sliced) ctx.drawImage(crackImage, this.x, this.y, this.width, this.height);
+      }
+      isBlack() { return this.typeSrc === badLogo; }
+    }
+
+    function spawnLogo() {
+      if (isGameOver) return;
+      const type = Math.random() < 0.7
+        ? normalLogos[Math.floor(Math.random() * normalLogos.length)]
+        : badLogo;
+      const x = Math.random() * (canvas.width - 150) + 50;
+      clouds.push(new Logo(type, x));
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      clearInterval(spawnInterval);
+      loseSound.volume = 0.2; loseSound.play();
+      document.getElementById("loseScreen").style.display = "flex";
+      window.saveScore(playerName, score);
+      window.loadLeaderboard();
+    }
+
+    function animate() {
+      if (isGameOver) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      clouds.forEach(c => { c.update(); c.draw(); });
+      clouds = clouds.filter(c => !c.markedForDeletion);
+      requestAnimationFrame(animate);
+    }
+
+    function sliceHandler(x, y) {
+      mouseTrail.push({ x, y });
+      if (mouseTrail.length > 10) mouseTrail.shift();
+      for (let i = 0; i < mouseTrail.length - 1; i++) {
+        const p1 = mouseTrail[i], p2 = mouseTrail[i + 1];
+        checkSlice(p1.x, p1.y, p2.x, p2.y);
+      }
+    }
+
+    function checkSlice(x1, y1, x2, y2) {
+      clouds.forEach(logo => {
+        if (logo.markedForDeletion || logo.sliced) return;
+        if (lineRect(x1, y1, x2, y2, logo.x, logo.y, logo.width, logo.height)) {
+          logo.sliced = true;
+          logo.fallSpeed = 5;
+          if (logo.isBlack()) {
+            // Black logo: -2 điểm
+            score -= 2;
+            fallSound.volume = 0.15; fallSound.play();
+          } else {
+            // Colorful logo: +2 điểm
+            score += 2;
+            cutSound.volume = 0.2; cutSound.play();
+            // Speed up EVERY 5 points (giữ như bản trước)
+            if (score > 0 && score % 5 === 0) {
+              clearInterval(spawnInterval);
+              spawnRate = Math.max(100, Math.floor(spawnRate * 0.85));
+              spawnInterval = setInterval(spawnLogo, spawnRate);
+            }
+          }
+          window.updateHUD();
+        }
+      });
+    }
+
+    // Line—rectangle intersection helpers
+    function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+      return lineLine(x1, y1, x2, y2, rx, ry, rx + rw, ry) ||
+             lineLine(x1, y1, x2, y2, rx, ry, rx, ry + rh) ||
+             lineLine(x1, y1, x2, y2, rx + rw, ry, rx + rw, ry + rh) ||
+             lineLine(x1, y1, x2, y2, rx, ry + rh, rx + rw, ry + rh);
+    }
+    function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (den === 0) return false;
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+      return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    }
+
+    // Input
+    const canvasEl = document.getElementById("gameCanvas");
+    canvasEl.addEventListener("mousemove", e => { if (!isGameOver) sliceHandler(e.clientX, e.clientY); });
+    canvasEl.addEventListener("touchmove", e => {
+      if (!isGameOver && e.touches[0]) sliceHandler(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    // Buttons
+    document.getElementById("playButton").onclick = () => {
+      const val = document.getElementById("nameInput").value;
+      playerName = (val && val.trim()) ? val.trim() : "Guest";
+      document.getElementById("startScreen").style.display = "none";
+      resetGame();
+    };
+    document.getElementById("loseScreen").onclick = () => {
+      document.getElementById("loseScreen").style.display = "none";
+      resetGame();
+    };
+
+    function resetGame() {
+      score = 0; miss = 0; isGameOver = false;
+      clouds = []; spawnRate = 800;
+      clearInterval(spawnInterval);
+      spawnInterval = setInterval(spawnLogo, spawnRate);
+      window.updateHUD();
+      window.loadLeaderboard();
+      animate();
+    }
+
+    // Init
+    window.onload = () => { window.updateHUD(); window.loadLeaderboard(); };
+
+    // Ensure glass classes
+    document.getElementById("leaderboard").classList.add("glass");
+    document.getElementById("hud").classList.add("glass");
+  </script>
+</body>
+</html>
