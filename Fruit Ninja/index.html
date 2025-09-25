@@ -5,7 +5,7 @@
   <title>Rialo Ninja</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Google Font -->
+  <!-- Font đẹp -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <!-- Firebase v10 (ESM) -->
@@ -29,7 +29,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
-
     const COLLECTION = "Best Rialo ninjas";
 
     // Save score (per player name)
@@ -46,7 +45,7 @@
       }
     };
 
-    // Load leaderboard top 10
+    // Load leaderboard top 10 (hiển thị "Tên: điểm" 1 dòng)
     window.loadLeaderboard = async function() {
       try {
         const q = query(collection(db, COLLECTION), orderBy("score", "desc"), limit(10));
@@ -57,7 +56,13 @@
           const data = d.data() || {};
           const n = (data.name ?? "Guest");
           const s = (typeof data.score === "number" ? data.score : 0);
-          rows += `<li><span class="rank">${rank++}.</span> <span class="name">${n}</span><span class="dots"></span><span class="score">${s}</span></li>`;
+          rows += `
+            <li class="lb-item">
+              <span class="rank">${rank++}.</span>
+              <span class="name">${n}</span>
+              <span class="sep">:</span>
+              <span class="score">${s}</span>
+            </li>`;
         });
         document.getElementById("leaderboard").innerHTML = `
           <div class="panel-title">Best Rialo ninjas</div>
@@ -127,17 +132,16 @@
       list-style: none; padding: 0; margin: 0;
       display: grid; gap: 6px;
     }
-    .lb-list li{
-      display: grid; grid-template-columns: auto 1fr auto; align-items: center;
-      gap: 8px; font-weight: 600;
+    /* Mỗi dòng 1 hàng: "rank  name : score" */
+    .lb-item{
+      display: flex; align-items: center; gap: 8px;
+      justify-content: flex-start; /* giữ layout gọn */
+      font-weight: 600; white-space: nowrap;
     }
-    .lb-list .rank{ opacity: 0.9; width: 28px; text-align: right; }
-    .lb-list .name{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lb-list .dots{
-      height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
-      margin: 0 6px;
-    }
-    .lb-list .score{ min-width: 24px; text-align: right; }
+    .lb-item .rank{ opacity: 0.9; width: 28px; text-align: right; flex: 0 0 28px; }
+    .lb-item .name{ max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+    .lb-item .sep{ opacity: 0.9; }
+    .lb-item .score{ margin-left: 2px; }
 
     /* HUD (top-left) */
     #hud{
@@ -312,7 +316,7 @@
             // Colorful logo: +2 điểm
             score += 2;
             cutSound.volume = 0.2; cutSound.play();
-            // Speed up EVERY 5 points (giữ như bản trước)
+            // Speed up EVERY 5 points
             if (score > 0 && score % 5 === 0) {
               clearInterval(spawnInterval);
               spawnRate = Math.max(100, Math.floor(spawnRate * 0.85));
@@ -370,8 +374,6 @@
 
     // Init
     window.onload = () => { window.updateHUD(); window.loadLeaderboard(); };
-
-    // Ensure glass classes
     document.getElementById("leaderboard").classList.add("glass");
     document.getElementById("hud").classList.add("glass");
   </script>
